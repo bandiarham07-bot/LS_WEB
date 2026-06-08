@@ -27,6 +27,7 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
         model = AssignmentSubmission
         fields = [
             'id',
+            'roll_number',
             'github_repo_url',
             'github_repo_name',
             'grade_awarded',

@@ -14,7 +14,7 @@ function formatDateTime(value) {
 function getErrorMessage(error) {
   const data = error?.response?.data
   if (!data) return 'Submission failed. Please try again.'
-  return data.error || data.github_repo_url || 'Submission failed. Please try again.'
+  return data.error || data.roll_number || data.github_repo_url || 'Submission failed. Please try again.'
 }
 
 function formatGrade(submission) {
@@ -38,12 +38,15 @@ export default function AssignmentDetail({ page }) {
   const [repoUrl, setRepoUrl] = useState(
     assignment?.submission?.github_repo_url || ''
   )
+  const [rollNumber, setRollNumber] = useState(
+    assignment?.submission?.roll_number || ''
+  )
   const { showToast } = useToast()
   const submitAssignment = useSubmitAssignment(page.id, assignment.id)
 
   function handleSubmit(event) {
     event.preventDefault()
-    submitAssignment.mutate(repoUrl, {
+    submitAssignment.mutate({ githubRepoUrl: repoUrl, rollNumber }, {
       onSuccess: (submission) => {
         showToast(`Submitted ${submission.github_repo_name}`)
       },
@@ -166,6 +169,9 @@ export default function AssignmentDetail({ page }) {
             <p className="text-xs text-gray-400 mt-2">
               Submitted {formatDateTime(submission.submitted_at)}
             </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Roll number: {submission.roll_number}
+            </p>
           </div>
         )}
 
@@ -175,6 +181,18 @@ export default function AssignmentDetail({ page }) {
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <label className="text-xs font-semibold text-gray-500" htmlFor="roll_number">
+              Roll number
+            </label>
+            <input
+              id="roll_number"
+              type="text"
+              value={rollNumber}
+              onChange={(event) => setRollNumber(event.target.value)}
+              placeholder="Enter your roll number"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[#4a6fa5] focus:ring-2 focus:ring-[#d9e4f2]"
+              required
+            />
             <label className="text-xs font-semibold text-gray-500" htmlFor="github_repo_url">
               GitHub repository link
             </label>

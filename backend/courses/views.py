@@ -143,6 +143,13 @@ def get_github_repo_name(repo_url):
 
 class AssignmentSubmitView(APIView):
     def post(self, request, assignment_id):
+        roll_number = request.data.get('roll_number', '').strip()
+        if not roll_number:
+            return Response(
+                {'roll_number': 'Roll number is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         repo_url = request.data.get('github_repo_url', '').strip()
         if not repo_url:
             return Response(
@@ -181,6 +188,7 @@ class AssignmentSubmitView(APIView):
             assignment=assignment,
             user=request.user,
             defaults={
+                'roll_number': roll_number,
                 'github_repo_url': repo_url,
                 'github_repo_name': repo_name,
             },
