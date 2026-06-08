@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useSectionPages } from '../hooks/useSectionPages'
 import { usePage } from '../hooks/usePage'
 import { useUpdateProgress } from '../hooks/useUpdateProgress'
+import AssignmentDetail from '../components/AssignmentDetail'
 import ContentBlockRenderer from '../components/blocks/ContentBlockRenderer'
 
 const SECTION_LABELS = {
@@ -82,17 +83,20 @@ export default function SectionPage() {
         </button>
       </div>
 
-      {/* Content blocks */}
-      <div className="flex flex-col gap-4 mb-8">
-        {page.blocks.map(block => (
-          <ContentBlockRenderer key={block.id} block={block} />
-        ))}
-        {page.blocks.length === 0 && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-10 text-center text-sm text-gray-400">
-            No content on this page yet.
-          </div>
-        )}
-      </div>
+      {section === 'assignments' && page.assignment ? (
+        <AssignmentDetail page={page} />
+      ) : (
+        <div className="flex flex-col gap-4 mb-8">
+          {page.blocks.map(block => (
+            <ContentBlockRenderer key={block.id} block={block} />
+          ))}
+          {page.blocks.length === 0 && (
+            <div className="bg-white border border-gray-100 rounded-2xl p-10 text-center text-sm text-gray-400">
+              No content on this page yet.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation footer */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-100">

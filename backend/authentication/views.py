@@ -1,5 +1,6 @@
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+import requests
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -9,8 +10,29 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from courses.models import User, UserProgress
 
 
+def token_response_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': {
+            'email': user.email,
+            'name': f'{user.first_name} {user.last_name}'.strip(),
+        },
+    })
+
+
+google_session = requests.Session()
+google_session.mount(
+    'https://',
+    requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=2),
+)
+google_request = google_requests.Request(session=google_session)
+
+
 class GoogleAuthView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'auth'
 
     def post(self, request):
         credential = request.data.get('credential')
@@ -23,7 +45,7 @@ class GoogleAuthView(APIView):
         try:
             idinfo = id_token.verify_oauth2_token(
                 credential,
-                google_requests.Request(),
+                google_request,
                 settings.GOOGLE_CLIENT_ID,
             )
         except ValueError:
@@ -33,6 +55,12 @@ class GoogleAuthView(APIView):
             )
 
         email = idinfo.get('email')
+        if not email or not idinfo.get('email_verified'):
+            return Response(
+                {'error': 'Google account email must be verified'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         name = idinfo.get('name', '')
         parts = name.split(' ', 1)
 
@@ -48,12 +76,4 @@ class GoogleAuthView(APIView):
         if created:
             UserProgress.objects.create(user=user)
 
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'email': user.email,
-                'name': f'{user.first_name} {user.last_name}'.strip(),
-            },
-        })
+        return token_response_for_user(user)
