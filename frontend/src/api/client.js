@@ -1,7 +1,10 @@
 import axios from 'axios'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+let refreshPromise = null
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL + '/api',
+  baseURL: `${API_BASE_URL}/api`,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -21,10 +24,15 @@ api.interceptors.response.use(
       original._retry = true
       try {
         const refresh = sessionStorage.getItem('refresh_token')
-        const { data } = await axios.post(
-          import.meta.env.VITE_API_BASE_URL + '/api/auth/token/refresh/',
-          { refresh }
-        )
+        if (!refresh) throw new Error('Missing refresh token')
+
+        refreshPromise ||= axios
+          .post(`${API_BASE_URL}/api/auth/token/refresh/`, { refresh })
+          .finally(() => {
+            refreshPromise = null
+          })
+
+        const { data } = await refreshPromise
         sessionStorage.setItem('access_token', data.access)
         original.headers.Authorization = `Bearer ${data.access}`
         return api(original)

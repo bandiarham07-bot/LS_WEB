@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -6,6 +6,8 @@ export default function LoginPage() {
   const { loginWithGoogle, user } = useAuth()
   const navigate = useNavigate()
   const btnRef = useRef(null)
+  const [loginError, setLoginError] = useState('')
+  const [isSigningIn, setIsSigningIn] = useState(false)
 
   useEffect(() => {
     if (user) { navigate('/'); return }
@@ -14,8 +16,16 @@ export default function LoginPage() {
       window.google.accounts.id.initialize({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
         callback: async ({ credential }) => {
-          await loginWithGoogle(credential)
-          navigate('/')
+          setLoginError('')
+          setIsSigningIn(true)
+          try {
+            await loginWithGoogle(credential)
+            navigate('/')
+          } catch {
+            setLoginError('Sign in failed. Please try again.')
+          } finally {
+            setIsSigningIn(false)
+          }
         },
       })
       window.google.accounts.id.renderButton(btnRef.current, {
@@ -29,10 +39,13 @@ export default function LoginPage() {
     if (window.google?.accounts?.id) {
       initGoogle()
     } else {
-      const script = document.createElement('script')
+      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
+      const script = existingScript || document.createElement('script')
       script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
       script.onload = initGoogle
-      document.head.appendChild(script)
+      if (!existingScript) document.head.appendChild(script)
     }
   }, [user, loginWithGoogle, navigate])
 
@@ -55,6 +68,14 @@ export default function LoginPage() {
         </div>
 
         <div ref={btnRef} />
+
+        {isSigningIn && (
+          <p className="text-xs text-gray-500">Signing in...</p>
+        )}
+
+        {loginError && (
+          <p className="text-sm text-red-600 text-center">{loginError}</p>
+        )}
 
         <p className="text-xs text-gray-400 text-center">
           Only registered students can access this platform

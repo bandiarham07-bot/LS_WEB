@@ -3,7 +3,9 @@ Management command to seed test content for all three block types.
 Run once after migrations:  python manage.py seed_test_data
 """
 from django.core.management.base import BaseCommand
-from courses.models import CourseStatus, ContentPage, ContentBlock
+from django.utils import timezone
+from datetime import timedelta
+from courses.models import Assignment, CourseStatus, ContentPage, ContentBlock
 
 
 PAGES = [
@@ -340,6 +342,15 @@ class Command(BaseCommand):
 
             for block_data in blocks:
                 ContentBlock.objects.create(page=page, **block_data)
+
+            if page.section == 'assignments':
+                Assignment.objects.create(
+                    page=page,
+                    details='Review the brief and supporting links, then submit your GitHub repository below.',
+                    deliverables='A public GitHub repository containing the completed assignment source code and any required assets.',
+                    due_date=timezone.now() + timedelta(days=14 + page.order),
+                    weightage='10%',
+                )
 
             block_count = len(blocks)
             self.stdout.write(

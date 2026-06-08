@@ -1,29 +1,30 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useCallback } from 'react'
 import axios from 'axios'
 
 const AuthContext = createContext(null)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
+function saveSession(data) {
+  sessionStorage.setItem('access_token', data.access)
+  sessionStorage.setItem('refresh_token', data.refresh)
+  sessionStorage.setItem('user', JSON.stringify(data.user))
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  // Restore session on page reload
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const stored = sessionStorage.getItem('user')
-    if (stored && sessionStorage.getItem('access_token')) {
-      setUser(JSON.parse(stored))
-    }
-    setLoading(false)
-  }, [])
+    if (!stored || !sessionStorage.getItem('access_token')) return null
+    return JSON.parse(stored)
+  })
+  const loading = false
 
   const loginWithGoogle = useCallback(async (credential) => {
     const { data } = await axios.post(
-      import.meta.env.VITE_API_BASE_URL + '/api/auth/google/',
+      `${API_BASE_URL}/api/auth/google/`,
       { credential }
     )
-    sessionStorage.setItem('access_token', data.access)
-    sessionStorage.setItem('refresh_token', data.refresh)
-    sessionStorage.setItem('user', JSON.stringify(data.user))
+    saveSession(data)
     setUser(data.user)
     return data.user
   }, [])

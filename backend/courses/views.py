@@ -1,8 +1,16 @@
+from urllib.parse import urlparse
+
+from django.utils import timezone
+from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import CourseStatus, ContentPage, UserProgress
-from .serializers import CourseStatusSerializer, ContentPageSerializer
+from .models import Assignment, AssignmentSubmission, CourseStatus, ContentPage, UserProgress
+from .serializers import (
+    AssignmentSubmissionSerializer,
+    CourseStatusSerializer,
+    ContentPageSerializer,
+)
 
 # Sections that are navigable as content pages (excludes 'home' which is
 # its own tab and has no route in the frontend)
@@ -82,10 +90,100 @@ class SectionPagesView(generics.ListAPIView):
 
     def get_queryset(self):
         section = self.kwargs['section']
-        return ContentPage.objects.filter(section=section).prefetch_related('blocks')
+        user_submission_prefetch = Prefetch(
+            'assignment__submissions',
+            queryset=AssignmentSubmission.objects.filter(user=self.request.user),
+            to_attr='current_user_submissions',
+        )
+        return (
+            ContentPage.objects
+            .filter(section=section)
+            .select_related('assignment')
+            .prefetch_related('blocks', user_submission_prefetch)
+        )
 
 
 class PageDetailView(generics.RetrieveAPIView):
     serializer_class = ContentPageSerializer
-    queryset = ContentPage.objects.prefetch_related('blocks').all()
     lookup_field = 'id'
+
+    def get_queryset(self):
+        user_submission_prefetch = Prefetch(
+            'assignment__submissions',
+            queryset=AssignmentSubmission.objects.filter(user=self.request.user),
+            to_attr='current_user_submissions',
+        )
+        return (
+            ContentPage.objects
+            .select_related('assignment')
+            .prefetch_related('blocks', user_submission_prefetch)
+            .all()
+        )
+
+
+def get_github_repo_name(repo_url):
+    parsed = urlparse(repo_url.strip())
+    if parsed.scheme not in ['http', 'https']:
+        return None
+    host = parsed.netloc.lower()
+    if host.startswith('www.'):
+        host = host[4:]
+    parts = [part for part in parsed.path.strip('/').split('/') if part]
+
+    if host != 'github.com' or len(parts) < 2:
+        return None
+
+    repo = parts[1]
+    if repo.endswith('.git'):
+        repo = repo[:-4]
+    if not repo:
+        return None
+    return f'{parts[0]}/{repo}'
+
+
+class AssignmentSubmitView(APIView):
+    def post(self, request, assignment_id):
+        repo_url = request.data.get('github_repo_url', '').strip()
+        if not repo_url:
+            return Response(
+                {'github_repo_url': 'GitHub repository URL is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        repo_name = get_github_repo_name(repo_url)
+        if not repo_name:
+            return Response(
+                {'github_repo_url': 'Enter a valid GitHub repository URL like https://github.com/user/repo.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response(
+                {'error': 'Assignment not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        now = timezone.now()
+        if assignment.opens_at and now < assignment.opens_at:
+            return Response(
+                {'error': 'This assignment is not open for submissions yet.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if now > assignment.due_date:
+            return Response(
+                {'error': 'The due date has passed. Submissions are closed.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        submission, _ = AssignmentSubmission.objects.update_or_create(
+            assignment=assignment,
+            user=request.user,
+            defaults={
+                'github_repo_url': repo_url,
+                'github_repo_name': repo_name,
+            },
+        )
+
+        return Response(AssignmentSubmissionSerializer(submission).data)
