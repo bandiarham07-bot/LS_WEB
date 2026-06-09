@@ -5,9 +5,10 @@ export function useSubmitAssignment(pageId, assignmentId) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (githubRepoUrl) => {
+    mutationFn: async ({ githubRepoUrl, rollNumber }) => {
       const { data } = await api.post(`/assignments/${assignmentId}/submit/`, {
         github_repo_url: githubRepoUrl,
+        roll_number: rollNumber,
       })
       return data
     },

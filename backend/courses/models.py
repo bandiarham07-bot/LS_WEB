@@ -118,6 +118,7 @@ class AssignmentSubmission(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='assignment_submissions'
     )
+    roll_number = models.CharField(max_length=50)
     github_repo_url = models.URLField()
     github_repo_name = models.CharField(max_length=255)
     grade_awarded = models.DecimalField(

@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.http import HttpResponse
 from django.utils import timezone
+from openpyxl import Workbook
 from .models import (
     Assignment,
     AssignmentSubmission,
@@ -10,6 +12,96 @@ from .models import (
     ContentBlock,
     UserProgress,
 )
+
+
+def format_datetime(value):
+    if not value:
+        return ''
+    return timezone.localtime(value).strftime('%Y-%m-%d %H:%M:%S')
+
+
+def excel_safe_sheet_title(title, existing_titles):
+    clean_title = ''.join(
+        character if character not in r'[]:*?/\\' else '-'
+        for character in title
+    ).strip() or 'Assignment'
+    clean_title = clean_title[:31]
+
+    candidate = clean_title
+    counter = 2
+    while candidate in existing_titles:
+        suffix = f' {counter}'
+        candidate = f'{clean_title[:31 - len(suffix)]}{suffix}'
+        counter += 1
+    return candidate
+
+
+def build_assignment_submissions_workbook(assignments):
+    workbook = Workbook()
+    default_sheet = workbook.active
+    workbook.remove(default_sheet)
+    existing_titles = set()
+
+    for assignment in assignments:
+        sheet_title = excel_safe_sheet_title(assignment.page.title, existing_titles)
+        existing_titles.add(sheet_title)
+        worksheet = workbook.create_sheet(title=sheet_title)
+        worksheet.append([
+            'Assignment',
+            'Roll number',
+            'Student email',
+            'Student name',
+            'GitHub repository',
+            'GitHub repository URL',
+            'Grade awarded',
+            'Grade total',
+            'Evaluator note',
+            'Graded at',
+            'Submitted at',
+            'Updated at',
+        ])
+
+        submissions = (
+            assignment.submissions
+            .select_related('user')
+            .order_by('roll_number', 'user__email')
+        )
+        for submission in submissions:
+            student_name = ' '.join(
+                part for part in [
+                    submission.user.first_name,
+                    submission.user.last_name,
+                ] if part
+            )
+            worksheet.append([
+                assignment.page.title,
+                submission.roll_number,
+                submission.user.email,
+                student_name,
+                submission.github_repo_name,
+                submission.github_repo_url,
+                submission.grade_awarded,
+                submission.grade_total,
+                submission.evaluator_note,
+                format_datetime(submission.graded_at),
+                format_datetime(submission.submitted_at),
+                format_datetime(submission.updated_at),
+            ])
+
+        for column_cells in worksheet.columns:
+            max_length = max(
+                len(str(cell.value)) if cell.value is not None else 0
+                for cell in column_cells
+            )
+            worksheet.column_dimensions[column_cells[0].column_letter].width = min(
+                max(max_length + 2, 12),
+                50,
+            )
+
+    if not workbook.sheetnames:
+        workbook.create_sheet(title='Submissions')
+
+    return workbook
 
 
 @admin.register(User)
@@ -97,6 +189,20 @@ class AssignmentAdmin(admin.ModelAdmin):
     list_filter = ['due_date', 'opens_at']
     search_fields = ['page__title', 'details', 'deliverables']
     readonly_fields = ['is_open']
+    actions = ['export_submissions_excel']
+
+    @admin.action(description='Download submission data as Excel')
+    def export_submissions_excel(self, request, queryset):
+        assignments = queryset.select_related('page').prefetch_related('submissions__user')
+        workbook = build_assignment_submissions_workbook(assignments)
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = (
+            'attachment; filename="assignment-submissions.xlsx"'
+        )
+        workbook.save(response)
+        return response
 
 
 @admin.register(AssignmentSubmission)
@@ -104,6 +210,7 @@ class AssignmentSubmissionAdmin(admin.ModelAdmin):
     list_display = [
         'assignment',
         'user',
+        'roll_number',
         'github_repo_name',
         'grade_display',
         'graded_at',
@@ -115,6 +222,7 @@ class AssignmentSubmissionAdmin(admin.ModelAdmin):
     search_fields = [
         'assignment__page__title',
         'user__email',
+        'roll_number',
         'github_repo_name',
         'github_repo_url',
         'evaluator_note',
@@ -123,6 +231,7 @@ class AssignmentSubmissionAdmin(admin.ModelAdmin):
     fields = [
         'assignment',
         'user',
+        'roll_number',
         'github_repo_url',
         'github_repo_name',
         'grade_awarded',
