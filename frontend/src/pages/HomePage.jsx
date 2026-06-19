@@ -31,9 +31,11 @@ function LastSeenCard({ page }) {
 }
 
 function AssignmentReminderCard({ pages }) {
-  // Show the first assignments page as a reminder
-  const first = pages?.[0]
-  if (!first) return null
+  // Show the last assignments page as a reminder
+  const last = pages?.[pages.length - 1];
+  
+  if (!last) return null;
+  
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-5 flex items-start gap-3">
       <div className="w-9 h-9 rounded-xl bg-[#eef2f8] flex items-center justify-center shrink-0">
@@ -44,7 +46,7 @@ function AssignmentReminderCard({ pages }) {
       </div>
       <div>
         <p className="text-sm font-medium text-gray-900">Upcoming Assignment:</p>
-        <p className="text-sm text-gray-500 mt-0.5">{first.title}</p>
+        <p className="text-sm text-gray-500 mt-0.5">{last.title}</p>
       </div>
     </div>
   )
