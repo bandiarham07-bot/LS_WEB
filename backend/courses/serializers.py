@@ -49,6 +49,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = [
             'id',
+            'submission_type',
             'details',
             'deliverables',
             'due_date',
