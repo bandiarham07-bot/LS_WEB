@@ -35,6 +35,7 @@ function InfoPanel({ title, children }) {
 
 export default function AssignmentDetail({ page }) {
   const assignment = page.assignment
+  const isUrlSubmission = assignment.submission_type === 'url'
   const [repoUrl, setRepoUrl] = useState(
     assignment?.submission?.github_repo_url || ''
   )
@@ -117,7 +118,9 @@ export default function AssignmentDetail({ page }) {
       <InfoPanel title="Assignment grade">
         {!submission ? (
           <p className="text-sm text-gray-500">
-            Submit your repository to see evaluation updates here.
+            {isUrlSubmission
+              ? 'Submit your website link to see evaluation updates here.'
+              : 'Submit your repository to see evaluation updates here.'}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -194,14 +197,14 @@ export default function AssignmentDetail({ page }) {
               required
             />
             <label className="text-xs font-semibold text-gray-500" htmlFor="github_repo_url">
-              GitHub repository link
+              {isUrlSubmission ? 'Website Link' : 'GitHub repository link'}
             </label>
             <input
               id="github_repo_url"
               type="url"
               value={repoUrl}
               onChange={(event) => setRepoUrl(event.target.value)}
-              placeholder="https://github.com/username/repository"
+              placeholder={isUrlSubmission ? 'https://your-project.com': 'https://github.com/username/repository'}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-colors focus:border-[#4a6fa5] focus:ring-2 focus:ring-[#d9e4f2]"
               required
             />
@@ -216,8 +219,8 @@ export default function AssignmentDetail({ page }) {
               {submitAssignment.isPending
                 ? 'Submitting...'
                 : submission
-                  ? 'Update submission'
-                  : 'Submit repository'}
+                  ? isUrlSubmission ? 'Update link' : 'Update submission'
+                  : isUrlSubmission ? 'Submit link' : 'Submit repository'}
             </button>
           </form>
         )}
