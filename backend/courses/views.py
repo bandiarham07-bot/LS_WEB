@@ -150,22 +150,6 @@ class AssignmentSubmitView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        repo_url = request.data.get('github_repo_url', '').strip()
-        if not repo_url:
-            return Response(
-                {'github_repo_url': 'A URL is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        parsed = urlparse(repo_url)
-        if parsed.scheme not in ('http', 'https') or not parsed.netloc:
-            return Response(
-                {'github_repo_url': 'Enter a valid URL like https://your-site.com.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )    
-
-        repo_name = repo_url
-
         try:
             assignment = Assignment.objects.get(id=assignment_id)
         except Assignment.DoesNotExist:
@@ -173,6 +157,30 @@ class AssignmentSubmitView(APIView):
                 {'error': 'Assignment not found.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        repo_url = request.data.get('github_repo_url', '').strip()
+        if not repo_url:
+            field_label = 'Website URL' if assignment.submission_type == 'url' else 'GitHub repository URL'
+            return Response(
+                {'github_repo_url': f'{field_label} is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if assignment.submission_type == 'url':
+            parsed = urlparse(repo_url.strip())
+            if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+                return Response(
+                    {'github_repo_url': 'Enter a valid URL like https://your-site.com.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            repo_name = repo_url
+        else:
+            repo_name = get_github_repo_name(repo_url)
+            if not repo_name:
+                return Response(
+                    {'github_repo_url': 'Enter a valid GitHub repository URL like https://github.com/user/repo.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         now = timezone.now()
         if assignment.opens_at and now < assignment.opens_at:
