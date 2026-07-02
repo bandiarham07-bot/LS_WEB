@@ -142,7 +142,7 @@ class AssignmentInline(admin.StackedInline):
     model = Assignment
     extra = 0
     max_num = 1
-    fields = ['details', 'deliverables', 'due_date', 'opens_at', 'weightage']
+    fields = ['submission_type','details', 'deliverables', 'due_date', 'opens_at', 'weightage']
 
 
 @admin.register(ContentPage)
@@ -185,8 +185,8 @@ class ContentBlockAdmin(admin.ModelAdmin):
 
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
-    list_display = ['page', 'due_date', 'opens_at', 'weightage', 'is_open']
-    list_filter = ['due_date', 'opens_at']
+    list_display = ['page','submission_type', 'due_date', 'opens_at', 'weightage', 'is_open']
+    list_filter = ['submission_type','due_date', 'opens_at']
     search_fields = ['page__title', 'details', 'deliverables']
     readonly_fields = ['is_open']
     actions = ['export_submissions_excel']
