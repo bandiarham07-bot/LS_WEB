@@ -153,16 +153,18 @@ class AssignmentSubmitView(APIView):
         repo_url = request.data.get('github_repo_url', '').strip()
         if not repo_url:
             return Response(
-                {'github_repo_url': 'GitHub repository URL is required.'},
+                {'github_repo_url': 'A URL is required.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        repo_name = get_github_repo_name(repo_url)
-        if not repo_name:
+        parsed = urlparse(repo_url)
+        if parsed.scheme not in ('http', 'https') or not parsed.netloc:
             return Response(
-                {'github_repo_url': 'Enter a valid GitHub repository URL like https://github.com/user/repo.'},
+                {'github_repo_url': 'Enter a valid URL like https://your-site.com.'},
                 status=status.HTTP_400_BAD_REQUEST,
-            )
+            )    
+
+        repo_name = repo_url
 
         try:
             assignment = Assignment.objects.get(id=assignment_id)
