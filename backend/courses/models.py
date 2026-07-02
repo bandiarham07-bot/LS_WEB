@@ -76,9 +76,20 @@ class ContentBlock(models.Model):
 
 
 class Assignment(models.Model):
+    SUBMISSION_TYPE_CHOICES = [
+        ('github', 'GitHub repository'),
+        ('url', 'Website URL'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     page = models.OneToOneField(
         ContentPage, on_delete=models.CASCADE, related_name='assignment'
+    )
+    submission_type = models.CharField(
+        max_length=10,
+        choices=SUBMISSION_TYPE_CHOICES,
+        default='github',
+        help_text='Controls the submission form shown to students.',
     )
     details = models.TextField(
         blank=True,
